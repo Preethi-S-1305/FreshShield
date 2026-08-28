@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>FreshShield Dashboard</title>
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            color: #222;
+        }
+
+        .header {
+            background: #1f2937;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        .status {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            flex: 1;
+            min-width: 180px;
+        }
+
+        .label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .value {
+            font-size: 28px;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        .buttons {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px 18px;
+            margin: 5px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            height: 400px;
+        }
+
+        #message {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<div class="header">
+
+    <h1>FreshShield</h1>
+
+    <p>
+        Intelligent Gas Monitoring & Filtration System
+    </p>
+
+</div>
+
+
+<div class="container">
+
+
+    <!-- STATUS CARDS -->
+
+    <div class="status">
+
+
+        <div class="card">
+
+            <div class="label">
+                Bluetooth
+            </div>
+
+            <div
+                class="value"
+                id="bluetooth"
+            >
+                CONNECTING
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="label">
+                Experiment Phase
+            </div>
+
+            <div
+                class="value"
+                id="phase"
+            >
+                BASELINE
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="label">
+                Gas / VOC Index
+            </div>
+
+            <div
+                class="value"
+                id="gasIndex"
+            >
+                0
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="label">
+                ML Prototype
+            </div>
+
+            <div
+                class="value"
+                id="prediction"
+            >
+                0
+            </div>
+
+        </div>
+
+
+        <div class="card">
+
+            <div class="label">
+                Trend
+            </div>
+
+            <div
+                class="value"
+                id="trend"
+            >
+                WAITING
+            </div>
+
+        </div>
+
+
+    </div>
+
+
+    <!-- EXPERIMENT CONTROLS -->
+
+    <div class="buttons">
+
+        <h2>
+            Experiment Control
+        </h2>
+
+
+        <button
+            onclick="setPhase('BASELINE')"
+        >
+            BASELINE
+        </button>
+
+
+        <button
+            onclick="setPhase('ROSE_EXPOSURE')"
+        >
+            ROSE EXPOSURE
+        </button>
+
+
+        <button
+            onclick="setPhase('TREATMENT')"
+        >
+            TREATMENT
+        </button>
+
+
+        <button
+            onclick="setPhase('RECOVERY')"
+        >
+            RECOVERY
+        </button>
+
+
+        <div id="message"></div>
+
+    </div>
+
+
+    <!-- GRAPH -->
+
+    <div class="chart-container">
+
+        <h2>
+            Live Gas/VOC Index
+        </h2>
+
+        <canvas
+            id="gasChart"
+        ></canvas>
+
+    </div>
+
+
+</div>
+
+
+<script>
+
+
+// ==========================================
+// CHART
+// ==========================================
+
+const ctx =
+    document
+    .getElementById("gasChart")
+    .getContext("2d");
+
+
+const gasChart =
+    new Chart(
+        ctx,
+        {
+
+            type: "line",
+
+            data: {
+
+                labels: [],
+
+                datasets: [{
+
+                    label: "Gas/VOC Index",
+
+                    data: [],
+
+                    tension: 0.3,
+
+                    borderWidth: 2,
+
+                    pointRadius: 2
+
+                }]
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                animation: false,
+
+                scales: {
+
+                    y: {
+
+                        beginAtZero: false
+
+                    }
+
+                }
+
+            }
+
+        }
+    );
+
+
+// ==========================================
+// GET SENSOR DATA
+// ==========================================
+
+function updateData() {
+
+
+    fetch("/api/data")
+
+        .then(
+            response =>
+            response.json()
+        )
+
+        .then(
+            data => {
+
+
+                document
+                    .getElementById("bluetooth")
+                    .innerText =
+                    data.bluetooth;
+
+
+                document
+                    .getElementById("phase")
+                    .innerText =
+                    data.phase;
+
+
+                document
+                    .getElementById("gasIndex")
+                    .innerText =
+                    Number(
+                        data.gas_index
+                    ).toFixed(2);
+
+
+                document
+                    .getElementById("prediction")
+                    .innerText =
+                    Number(
+                        data.prediction
+                    ).toFixed(4)
+                    + " ppm";
+
+
+                document
+                    .getElementById("trend")
+                    .innerText =
+                    data.trend;
+
+
+                // --------------------------
+                // GRAPH
+                // --------------------------
+
+                const now =
+                    new Date()
+                    .toLocaleTimeString();
+
+
+                gasChart.data.labels.push(
+                    now
+                );
+
+
+                gasChart.data.datasets[0]
+                    .data.push(
+                        data.gas_index
+                    );
+
+
+                // Keep last 60 readings
+
+                if (
+                    gasChart.data.labels.length
+                    > 60
+                ) {
+
+                    gasChart.data.labels.shift();
+
+                    gasChart.data.datasets[0]
+                        .data.shift();
+
+                }
+
+
+                gasChart.update();
+
+            }
+        )
+
+        .catch(
+            error =>
+            console.log(error)
+        );
+
+}
+
+
+// ==========================================
+// CHANGE PHASE
+// ==========================================
+
+function setPhase(phase) {
+
+
+    fetch(
+        "/api/phase/" + phase
+    )
+
+        .then(
+            response =>
+            response.json()
+        )
+
+        .then(
+            data => {
+
+
+                if (data.success) {
+
+
+                    document
+                        .getElementById("phase")
+                        .innerText =
+                        data.phase;
+
+
+                    document
+                        .getElementById("message")
+                        .innerText =
+                        "Experiment phase changed to "
+                        + data.phase;
+
+
+                }
+
+            }
+        )
+
+        .catch(
+            error => {
+
+                document
+                    .getElementById("message")
+                    .innerText =
+                    "Error changing phase";
+
+                console.log(error);
+
+            }
+        );
+
+}
+
+
+// ==========================================
+// UPDATE EVERY SECOND
+// ==========================================
+
+setInterval(
+    updateData,
+    1000
+);
+
+
+updateData();
+
+
+</script>
+
+
+</body>
+
+</html>
